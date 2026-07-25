@@ -1,0 +1,14 @@
+{
+  "name": "website-redesign-runner-mcp",
+  "version": "1.0.0",
+  "description": "Lean MCP diagnostics and guarded recovery for Website Redesign Runner jobs",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
