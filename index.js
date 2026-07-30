@@ -12,6 +12,7 @@ const TOOLS = [
   {
     name: 'search_jobs',
     description: 'Search bounded Website Redesign Runner job summaries by exact identifiers, lead email, domain, status, references, or creation range.',
+    annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -27,11 +28,13 @@ const TOOLS = [
   {
     name: 'read_job',
     description: 'Read one explicit runner job with bounded, redacted configuration, failure, artifact, callback, timeline, and external-reference details.',
+    annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: 'object', required: ['job_id'], properties: { job_id: { type: 'string' } } },
   },
   {
     name: 'read_job_logs',
     description: 'Read bounded logs associated with one explicit runner job, optionally filtered by stage, severity, cursor, or time range.',
+    annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       type: 'object', required: ['job_id'], properties: {
         job_id: { type: 'string' }, stage: { type: 'string' }, severity: { type: 'string' },
@@ -43,6 +46,7 @@ const TOOLS = [
   {
     name: 'retry_job',
     description: 'Preview or explicitly apply a retry for one failed or canceled runner job. Preview is the default and completed/running jobs are rejected.',
+    annotations: { readOnlyHint: false, destructiveHint: false },
     inputSchema: {
       type: 'object', required: ['job_id'], properties: {
         job_id: { type: 'string' }, reason: { type: 'string', description: 'Operator reason for the retry.' },
@@ -53,6 +57,7 @@ const TOOLS = [
   {
     name: 'read_service_health',
     description: 'Read bounded runner service health for the runner, queue, browser dependency, and deployed version.',
+    annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: 'object', properties: {} },
   },
 ];
