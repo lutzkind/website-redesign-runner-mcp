@@ -12,6 +12,16 @@ test('exposes exactly the five bounded operations tools', () => {
   assert.deepEqual(TOOLS.map((tool) => tool.name), ['search_jobs', 'read_job', 'read_job_logs', 'retry_job', 'read_service_health']);
 });
 
+test('publishes accurate read-only and mutation annotations', () => {
+  const byName = Object.fromEntries(TOOLS.map((tool) => [tool.name, tool]));
+  for (const name of ['search_jobs', 'read_job', 'read_job_logs', 'read_service_health']) {
+    assert.equal(byName[name].annotations.readOnlyHint, true, name);
+    assert.equal(byName[name].annotations.destructiveHint, false, name);
+  }
+  assert.equal(byName.retry_job.annotations.readOnlyHint, false);
+  assert.equal(byName.retry_job.annotations.destructiveHint, false);
+});
+
 test('sanitizes secrets and bounds strings', () => {
   const result = sanitize({ authorization: 'secret', nested: { api_key: 'secret' }, message: 'Bearer abc' });
   assert.equal(result.authorization, undefined);
