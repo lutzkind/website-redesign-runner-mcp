@@ -1,0 +1,46 @@
+name: CI (lutzkind standard)
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-redesign-runner-mcp-ci-standard-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Standard checks
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, X64, ci, isolated]
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - name: Set up Node.js
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903
+        with:
+          node-version: '22.x'
+          cache: npm
+      - name: Run declared setup
+        id: setup
+        shell: bash
+        run: |
+          echo 'has_setup=true' >> "$GITHUB_OUTPUT"
+          npm ci
+      - name: Run declared checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          npm run test
+      - name: Clean generated workspace data
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          rm -rf .pytest_cache .mypy_cache .ruff_cache coverage dist build

@@ -1,0 +1,16 @@
+standard_version: 2.4.0
+profile: mcp
+default_branch: main
+self_hosted_labels:
+  - self-hosted
+  - Linux
+  - X64
+  - ci
+  - isolated
+heavy_checks:
+  enabled: false
+custom_commands:
+  setup: 'npm ci'
+  checks: 'npm run test'
+exceptions:
+  []
