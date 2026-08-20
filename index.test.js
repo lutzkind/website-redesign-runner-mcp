@@ -73,6 +73,17 @@ test('callback replay mode is forwarded without permitting other retry modes', a
     retry_mode: 'callback_delivery',
   });
   assert.equal(seen.retry_mode, 'callback_delivery');
+  await handleTool('retry_job', {
+    job_id: 'job_abc123',
+    reason: 'reconcile independently verified downstream state',
+    retry_mode: 'callback_delivery',
+    reconcile_downstream: true,
+  });
+  assert.equal(seen.reconcile_downstream, true);
+  await assert.rejects(
+    () => handleTool('retry_job', { job_id: 'job_abc123', reconcile_downstream: true }),
+    /requires callback_delivery retry mode/,
+  );
   await assert.rejects(
     () => handleTool('retry_job', { job_id: 'job_abc123', retry_mode: 'replacement_job' }),
     /unsupported retry_mode/,
