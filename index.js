@@ -51,6 +51,7 @@ const TOOLS = [
       type: 'object', required: ['job_id'], properties: {
         job_id: { type: 'string' }, reason: { type: 'string', description: 'Operator reason for the retry.' },
         apply: { type: 'boolean', default: false, description: 'Set true only after reviewing the preview.' },
+        retry_mode: { type: 'string', enum: ['callback_delivery'], description: 'Replay only an exhausted callback for an already completed job; never regenerates the redesign.' },
       },
     },
   },
@@ -135,11 +136,16 @@ async function readJobLogs(args = {}) {
   return runnerRequest('GET', `/api/ops/jobs/${encodeURIComponent(args.job_id)}/logs${queryString({ ...args, limit, cursor }, ['stage', 'severity', 'from', 'to', 'limit', 'cursor'])}`);
 }
 
-async function retryJob({ job_id, reason = '', apply = false } = {}) {
+async function retryJob({ job_id, reason = '', apply = false, retry_mode = '' } = {}) {
   assertJobId(job_id);
   if (typeof apply !== 'boolean') throw new Error('apply must be boolean');
   if (apply && !String(reason).trim()) throw new Error('reason is required when apply=true');
-  return runnerRequest('POST', `/api/ops/jobs/${encodeURIComponent(job_id)}/retry`, { apply, reason: String(reason).trim() });
+  if (retry_mode !== '' && retry_mode !== 'callback_delivery') throw new Error('unsupported retry_mode');
+  return runnerRequest('POST', `/api/ops/jobs/${encodeURIComponent(job_id)}/retry`, {
+    apply,
+    reason: String(reason).trim(),
+    ...(retry_mode ? { retry_mode } : {}),
+  });
 }
 
 async function readServiceHealth() {
