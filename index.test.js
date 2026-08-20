@@ -63,6 +63,22 @@ test('retry defaults to preview and requires a reason for apply', async () => {
   await assert.rejects(() => handleTool('retry_job', { job_id: 'job_abc123', apply: true }), /reason is required/);
 });
 
+test('callback replay mode is forwarded without permitting other retry modes', async () => {
+  process.env.RUNNER_MCP_TOKEN = 'test-token';
+  let seen;
+  mockFetch((_url, options) => { seen = JSON.parse(options.body); return jsonResponse({ ok: true, preview_only: true }); });
+  await handleTool('retry_job', {
+    job_id: 'job_abc123',
+    reason: 'replay after callback consumer fix',
+    retry_mode: 'callback_delivery',
+  });
+  assert.equal(seen.retry_mode, 'callback_delivery');
+  await assert.rejects(
+    () => handleTool('retry_job', { job_id: 'job_abc123', retry_mode: 'replacement_job' }),
+    /unsupported retry_mode/,
+  );
+});
+
 test('unauthorized runner response remains an MCP error', async () => {
   process.env.RUNNER_MCP_TOKEN = 'test-token';
   mockFetch(() => jsonResponse({ error: 'unauthorized' }, 401));
