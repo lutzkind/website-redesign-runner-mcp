@@ -6,7 +6,25 @@ const RUNNER_URL = (process.env.RUNNER_URL || 'https://runner.relaunchpilot.com'
 const JOB_ID_RE = /^job_[A-Za-z0-9]{6,80}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_LIMIT = 100;
+const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+function requestTimeoutMs() {
+  const configured = Number.parseInt(process.env.RUNNER_REQUEST_TIMEOUT_MS || '', 10);
+  return Number.isFinite(configured) && configured > 0 ? Math.max(10, configured) : DEFAULT_REQUEST_TIMEOUT_MS;
+}
+const MAX_STRING_LENGTH = 12000;
 const SENSITIVE_KEY_RE = /token|secret|password|credential|authorization|cookie|api[_-]?key|private[_-]?key|headers?/i;
+// Value-pattern redaction catches secrets returned under non-sensitive keys.
+const SENSITIVE_VALUE_PATTERNS = [
+  /Bearer\s+[A-Za-z0-9._~+/=-]+/gi,
+  /\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9_-]+/gi,
+  /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
+  /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  /\bAIza[0-9A-Za-z_-]{35}\b/g,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+];
 
 const TOOLS = [
   {
@@ -78,15 +96,21 @@ function boundedInteger(value, fallback, max) {
   return Math.min(value, max);
 }
 
+function redactValuePatterns(text) {
+  let redacted = String(text);
+  for (const pattern of SENSITIVE_VALUE_PATTERNS) {
+    redacted = redacted.replace(pattern, (match) => (/^Bearer/i.test(match) ? 'Bearer [REDACTED]' : '[REDACTED]'));
+  }
+  return redacted.slice(0, MAX_STRING_LENGTH);
+}
+
 function sanitize(value, key = '') {
   if (SENSITIVE_KEY_RE.test(key)) return undefined;
   if (Array.isArray(value)) return value.map((item) => sanitize(item, key)).filter((item) => item !== undefined);
   if (value && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [childKey, sanitize(childValue, childKey)]).filter(([, childValue]) => childValue !== undefined));
   }
-  if (typeof value === 'string') {
-    return value.replace(/Bearer\s+[A-Za-z0-9._-]+/ig, 'Bearer [REDACTED]').replace(/\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9_-]+/ig, '[REDACTED]').slice(0, 12000);
-  }
+  if (typeof value === 'string') return redactValuePatterns(value);
   return value;
 }
 
@@ -98,7 +122,21 @@ async function runnerRequest(method, path, body) {
     options.body = JSON.stringify(body);
   }
   options.headers.authorization = `Bearer ${String(process.env.RUNNER_MCP_TOKEN || '').trim()}`;
-  const response = await fetch(`${RUNNER_URL}${path}`, options);
+  const timeoutMs = requestTimeoutMs();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  options.signal = controller.signal;
+  let response;
+  try {
+    response = await fetch(`${RUNNER_URL}${path}`, options);
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      throw new Error(`RUNNER_TIMEOUT: runner request exceeded ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
   let data = {};
   try { data = await response.json(); } catch { data = {}; }
   if (!response.ok) {

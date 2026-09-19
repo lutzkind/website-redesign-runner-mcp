@@ -29,6 +29,51 @@ test('sanitizes secrets and bounds strings', () => {
   assert.equal(result.message, 'Bearer [REDACTED]');
 });
 
+test('redacts secret-shaped values stored under non-sensitive keys', () => {
+  const slackFixture = ['xoxb', '123456789012', 'abcdefghijklmnop'].join('-');
+  const awsFixture = ['AKIA', 'IOSFODNN7EXAMPLE'].join('');
+  const jwtFixture = ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiIxMjM0NTY3ODkwIn0', 'dozjgNryP4J3jVmNHl0w5N'].join('.');
+  const result = sanitize({
+    note: `github token ghp_${'A'.repeat(36)}`,
+    slack: `slack token ${slackFixture}`,
+    aws: awsFixture,
+    google: `AIza${'B'.repeat(35)}`,
+    jwt: jwtFixture,
+    pem: '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----',
+    text: 'contact person@example.com',
+  });
+  assert.equal(result.note, 'github token [REDACTED]');
+  assert.equal(result.slack, 'slack token [REDACTED]');
+  assert.equal(result.aws, '[REDACTED]');
+  assert.equal(result.google, '[REDACTED]');
+  assert.equal(result.jwt, '[REDACTED]');
+  assert.equal(result.pem, '[REDACTED]');
+  assert.equal(result.text, 'contact person@example.com');
+});
+
+test('aborts hung runner requests with a bounded timeout', async () => {
+  process.env.RUNNER_MCP_TOKEN = 'test-token';
+  process.env.RUNNER_REQUEST_TIMEOUT_MS = '50';
+  let seenSignal;
+  mockFetch((_url, options) => {
+    seenSignal = options.signal;
+    return new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => {
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        reject(error);
+      });
+    });
+  });
+  try {
+    await assert.rejects(() => handleTool('read_job', { job_id: 'job_abc123' }), /RUNNER_TIMEOUT/);
+    assert.ok(seenSignal instanceof AbortSignal);
+    assert.equal(seenSignal.aborted, true);
+  } finally {
+    delete process.env.RUNNER_REQUEST_TIMEOUT_MS;
+  }
+});
+
 test('search validates identifiers and sends bounded pagination', async () => {
   process.env.RUNNER_MCP_TOKEN = 'test-token';
   await assert.rejects(() => handleTool('search_jobs', { job_id: 'bad' }), /invalid job_id/);

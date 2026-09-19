@@ -14,6 +14,9 @@ Small, authenticated MCP for diagnosing Website Redesign Runner jobs and preview
 
 - `RUNNER_URL` — runner base URL; defaults to `https://runner.relaunchpilot.com`.
 - `RUNNER_MCP_TOKEN` — bearer token matching the runner's `WEBSITE_REDESIGN_MCP_TOKEN`. Required; no credential is embedded in this repository.
+- `RUNNER_REQUEST_TIMEOUT_MS` — bounded per-request timeout for runner calls; defaults to 30000 ms. A hung runner aborts instead of stalling the tool call.
+
+Runner responses are redacted by key name and by secret value pattern (Bearer headers, `sk/rk/pk` keys, GitHub/Slack/AWS/Google tokens, JWTs, and PEM private keys) before being returned to the MCP client.
 
 The MCP process runs in the existing `mcp-optimized`/v16 SSE wrapper. The public bridge is protected with the same bearer-authenticated bridge pattern as the other production MCPs.
 
