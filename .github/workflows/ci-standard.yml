@@ -38,6 +38,11 @@ jobs:
           set -euo pipefail
           git diff --check
           npm run test
+      - name: Check agent-friendliness contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/ci-standard/agent_friendliness.py --root .
       - name: Clean generated workspace data
         if: always()
         shell: bash
